@@ -15,6 +15,7 @@ It is operated from the MSX0 system using I²C commands and a BASIC interpreter.
 - Display driver ICs: **HV5523** and **HV513**
 - External high-voltage generation unit (housed in UnitProto), connected via Grove port
 - Fully compatible with the **M5Stack Unit** ecosystem, matching size and design
+<img src="https://github.com/Ninune-wa/Unit-8Nixie/blob/main/docs/photos/Unit_Nixie_Encoder.jpg?raw=true" width="50%">
 
 ## System Block Diagram
 
