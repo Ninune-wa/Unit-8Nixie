@@ -19,7 +19,7 @@ It is operated from the MSX0 system using I²C commands and a BASIC interpreter.
 
 ## System Block Diagram
 
-[📄 View the Block Diagram (PDF)](https://github.com/Ninune-wa/Unit-8Nixie/blob/main/docs/Unit_8Nixie-BlockDiagram%20.pdf)
+![System Block Diagram](docs/Unit_8Nixie-BlockDiagram.png)
 
 ## Contents
 
