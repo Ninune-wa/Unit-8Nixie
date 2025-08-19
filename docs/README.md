@@ -142,25 +142,6 @@ The system automatically stops shuffling when digit setting commands are execute
 - Individual digit commands (`0x10-0x17`) automatically stop shuffle for the specific tube
 - This provides seamless transition from shuffle mode to normal display mode
 
-### Clock Display Example
-```c
-// Display "12:34:56" with blinking colons
-// Set digits
-Wire.beginTransmission(0x2A); Wire.write(0x10); Wire.write(1); Wire.endTransmission(); // Tube 0: 1
-Wire.beginTransmission(0x2A); Wire.write(0x11); Wire.write(2); Wire.endTransmission(); // Tube 1: 2
-Wire.beginTransmission(0x2A); Wire.write(0x12); Wire.write(3); Wire.endTransmission(); // Tube 2: 3
-Wire.beginTransmission(0x2A); Wire.write(0x13); Wire.write(4); Wire.endTransmission(); // Tube 3: 4
-Wire.beginTransmission(0x2A); Wire.write(0x14); Wire.write(5); Wire.endTransmission(); // Tube 4: 5
-Wire.beginTransmission(0x2A); Wire.write(0x15); Wire.write(6); Wire.endTransmission(); // Tube 5: 6
-
-// Blink colons (tube 2 and 4 right dots)
-Wire.beginTransmission(0x2A); Wire.write(0x9A); Wire.write(1); Wire.endTransmission(); // Tube 2 right dot on
-Wire.beginTransmission(0x2A); Wire.write(0x9C); Wire.write(1); Wire.endTransmission(); // Tube 4 right dot on
-delay(1000);
-Wire.beginTransmission(0x2A); Wire.write(0x9A); Wire.write(0); Wire.endTransmission(); // Tube 2 right dot off
-Wire.beginTransmission(0x2A); Wire.write(0x9C); Wire.write(0); Wire.endTransmission(); // Tube 4 right dot off
-```
-
 ## Technical Implementation Details
 
 ### ISR (Interrupt Service Routine)
