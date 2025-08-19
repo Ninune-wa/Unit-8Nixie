@@ -1,5 +1,8 @@
 # Unit 8Nixie
 
+![Unit 8Nixie connected to MSX0 Stack](docs/photos/Unit_Nixie_MSX0.jpg)
+
+
 An 8-digit Nixie Tube display unit controllable via I²C, designed in the M5Stack "Unit" form factor.  
 It is operated from the MSX0 system using I²C commands and a BASIC interpreter.
 
