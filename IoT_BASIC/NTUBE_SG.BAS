@@ -1,0 +1,31 @@
+10 'SAVE "NTUBE_SG.BAS"
+20  PS$=CHR$(&HFF):_IOTPUT("device/i2c_a/2A",PS$)
+30  PS$=CHR$(&H36)+CHR$(&H1):_IOTPUT("device/i2c_a/2A",PS$)
+40  PS$=CHR$(&H7B):_IOTPUT("device/i2c_a/2A",PS$)
+50  PS$=CHR$(&H79):_IOTPUT("device/i2c_a/2A",PS$)
+60  PS$=CHR$(&H78):_IOTPUT("device/i2c_a/2A",PS$)
+70  PS$=CHR$(&H77):_IOTPUT("device/i2c_a/2A",PS$)
+80  PS$=CHR$(&H76):_IOTPUT("device/i2c_a/2A",PS$)
+90  PS$=CHR$(&H75):_IOTPUT("device/i2c_a/2A",PS$)
+100 PS$=CHR$(&H74):_IOTPUT("device/i2c_a/2A",PS$)
+110 TIME=0
+120 IF TIME<120 THEN 120
+130 PS$=CHR$(&H14)+CHR$(&H3):_IOTPUT("device/i2c_a/2A",PS$)
+140 TIME=0
+150 IF TIME<30 THEN 150
+160 PS$=CHR$(&H12)+CHR$(&H4):_IOTPUT("device/i2c_a/2A",PS$)
+170 TIME=0
+180 IF TIME<30 THEN 180
+190 PS$=CHR$(&H17)+CHR$(&H1):_IOTPUT("device/i2c_a/2A",PS$)
+200 TIME=0
+210 IF TIME<30 THEN 210
+220 PS$=CHR$(&H11)+CHR$(&H2):_IOTPUT("device/i2c_a/2A",PS$)
+230 TIME=0
+240 IF TIME<30 THEN 240
+250 PS$=CHR$(&H15)+CHR$(&H1):_IOTPUT("device/i2c_a/2A",PS$)
+260 TIME=0
+270 IF TIME<30 THEN 270
+280 PS$=CHR$(&H13)+CHR$(&H0):_IOTPUT("device/i2c_a/2A",PS$)
+290 TIME=0
+300 IF TIME<30 THEN 300
+310 PS$=CHR$(&H10)+CHR$(&H6):_IOTPUT("device/i2c_a/2A",PS$)
