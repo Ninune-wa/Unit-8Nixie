@@ -34,10 +34,10 @@ volatile uint8_t brightnessTable[8] = {20, 20, 20, 20, 20, 20, 20, 20}; // 表�
 volatile uint8_t dotLTable[8] = {0, 0, 0, 0, 0, 0, 0, 0};         // 左ドット表示状態
 volatile uint8_t dotRTable[8] = {0, 0, 0, 0, 0, 0, 0, 0};         // 右ドット表示状態
 
-// 2. 管別輝度補正テーブル（ハードウェア個体差対応）
-uint8_t brightnessCorrection[8] = {
-  100, 100, 100, 85, 100, 100, 100, 85  // 管3,7は15%減光
-};
+// 2. 管別輝度補正テーブル（削除してメモリ節約）
+// uint8_t brightnessCorrection[8] = {
+//   100, 100, 100, 85, 100, 100, 100, 85  // 管3,7は15%減光
+// };
 
 // 3. 新数字テーブル（I2C受信後の目標値）
 uint8_t newNumberTable[8] = {0, 1, 2, 3, 4, 5, 6, 7};
@@ -61,22 +61,12 @@ uint16_t shuffleSeed = 12345;     // 擬似乱数シード
 // 8. シャッフル停止時の目標数字テーブル
 uint8_t shuffleTargetTable[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 
-// クロスフェード速度テーブル（I2Cで変更可能）
-const uint16_t CROSSFADE_SPEED_TABLE[11] = {
-  13,   // 0: 超高速（約10ms間隔）
-  26,   // 1: 非常に高速（約20ms間隔）
-  33,   // 2: 高速（約25ms間隔）
-  52,   // 3: やや高速（約40ms間隔）  
-  66,   // 4: 標準（約50ms間隔）← デフォルト
-  79,   // 5: やや遅め（約60ms間隔）
-  132,  // 6: 遅め（約100ms間隔）
-  198,  // 7: ゆっくり（約150ms間隔）
-  264,  // 8: 非常にゆっくり（約200ms間隔）
-  330,  // 9: 超ゆっくり（約250ms間隔）
-  660   // 10: 極超ゆっくり（約500ms間隔）
+// クロスフェード速度テーブル
+const uint8_t CROSSFADE_SPEED_TABLE[7] PROGMEM = {
+  13, 26, 33, 66, 132, 198, 264
 };
 
-uint8_t crossfadeSpeedIndex = 4;  // デフォルト：標準（50ms間隔）
+uint8_t crossfadeSpeedIndex = 3;  // デフォルト：標準
 
 // 9. I2C制御
 uint8_t receiveBuffer[8];
@@ -125,9 +115,9 @@ ISR(TCA0_OVF_vect) {
     // フル輝度で表示（時分割により視覚的に輝度調整される）
     brightness = PWM_STEPS;
     
-    // 輝度補正適用
+    // 輝度補正適用（簡略化）
     if (currentDigit < 8) {
-      brightness = (brightness * brightnessCorrection[currentDigit]) / 100;
+      // brightness = (brightness * brightnessCorrection[currentDigit]) / 100;
       if (brightness > PWM_STEPS) brightness = PWM_STEPS;
     }
   }
@@ -148,11 +138,16 @@ ISR(TCA0_OVF_vect) {
     
     // アノード設定（管0-7）
     pinValues[4] |= (1 << currentDigit);
-    
-    // ドット表示処理
-    if (dotLTable[currentDigit]) pinValues[1] |= (1 << 2);  // 左ドット
-    if (dotRTable[currentDigit]) pinValues[1] |= (1 << 3);  // 右ドット
-    
+  }
+  
+  // ドット表示処理（数字の状態に関係なく独立して動作）
+  if (dotLTable[currentDigit]) {
+    pinValues[1] |= (1 << 2);  // 左ドット
+    pinValues[4] |= (1 << currentDigit);  // ドット用アノード
+  }
+  if (dotRTable[currentDigit]) {
+    pinValues[1] |= (1 << 3);  // 右ドット
+    pinValues[4] |= (1 << currentDigit);  // ドット用アノード
   }
   
   // シフトレジスタ出力
@@ -183,15 +178,26 @@ uint8_t getRandomDigit() {
   return pseudoRandom() % 10;
 }
 
-// 輝度補正を適用した輝度計算
+// 輝度補正を適用した輝度計算（簡略版）
 uint8_t calculateBrightness(uint8_t tube, uint8_t basePercent) {
-  if (tube >= 8 || basePercent > 100) return 0;
-  
+  if (tube >= 8) return 0;
   uint8_t brightness = (PWM_STEPS * basePercent) / 100;
-  if (brightnessCorrection[tube] != 100) {
-    brightness = (brightness * brightnessCorrection[tube]) / 100;
-  }
   return (brightness > PWM_STEPS) ? PWM_STEPS : brightness;
+}
+
+// 消灯機能（メモリ最適化版）
+void setTubeState(uint8_t tube, uint8_t digitState, uint8_t dotState) {
+  if (tube >= 8) return;
+  noInterrupts();
+  if (digitState == 255) {
+    displayTable[tube] = 255;  // 数字消灯
+    brightnessTable[tube] = 0;
+  }
+  if (dotState == 0) {
+    dotLTable[tube] = 0;
+    dotRTable[tube] = 0;
+  }
+  interrupts();
 }
 
 // 表示テーブル更新（ISR用テーブルを安全に更新）
@@ -211,7 +217,7 @@ void updateDisplayTable() {
 // クロスフェード開始
 void startCrossfade(uint8_t tube, uint8_t newNumber) {
   if (tube >= 8 || newNumber > 9) return;
-  if (oldNumberTable[tube] == newNumber) return; // 同じ数字なら不要
+  // 消灯状態からの復帰や同じ数字でも強制実行
   
   effectType[tube] = 1;  // クロスフェード有効
   effectStep[tube] = 0;  // ステップリセット
@@ -303,8 +309,9 @@ void processShuffles() {
 
 // エフェクト処理（loop内で実行）
 void processEffects() {
-  // タイミング制御（テーブル参照）
-  if (mainLoopCounter - lastEffectTime < CROSSFADE_SPEED_TABLE[crossfadeSpeedIndex]) return;
+  // タイミング制御（PROGMEMから読み取り）
+  uint8_t speed = pgm_read_byte(&CROSSFADE_SPEED_TABLE[crossfadeSpeedIndex]);
+  if (mainLoopCounter - lastEffectTime < speed) return;
   lastEffectTime = mainLoopCounter;
   
   // 各管のエフェクト処理
@@ -362,10 +369,19 @@ void processI2CCommand() {
       if (effectType[i] == 2) {
         stopShuffle(i, cmd);
       } else {
+        // 消灯状態からの復帰も含めて処理
         // 新→古コピー（重要！）
-        oldNumberTable[i] = newNumberTable[i];
-        // クロスフェード開始
-        startCrossfade(i, cmd);
+        oldNumberTable[i] = (displayTable[i] == 255) ? cmd : newNumberTable[i];
+        // 直接設定（消灯状態からの復帰）
+        noInterrupts();
+        displayTable[i] = cmd;
+        newNumberTable[i] = cmd;
+        brightnessTable[i] = calculateBrightness(i, 100);
+        interrupts();
+        // クロスフェード開始（同じ数字でも復帰処理）
+        if (oldNumberTable[i] != cmd) {
+          startCrossfade(i, cmd);
+        }
       }
     }
   }
@@ -379,11 +395,40 @@ void processI2CCommand() {
       if (effectType[tube] == 2) {
         stopShuffle(tube, number);
       } else {
+        // 消灯状態からの復帰も含めて処理
         // 新→古コピー
-        oldNumberTable[tube] = newNumberTable[tube];
-        // クロスフェード開始
-        startCrossfade(tube, number);
+        oldNumberTable[tube] = (displayTable[tube] == 255) ? number : newNumberTable[tube];
+        // 直接設定（消灯状態からの復帰）
+        noInterrupts();
+        displayTable[tube] = number;
+        newNumberTable[tube] = number;
+        brightnessTable[tube] = calculateBrightness(tube, 100);
+        interrupts();
+        // クロスフェード開始（同じ数字でも復帰処理）
+        if (oldNumberTable[tube] != number) {
+          startCrossfade(tube, number);
+        }
       }
+    }
+  }
+  else if (cmd >= 0x20 && cmd <= 0x27) {
+    // 管別左ドット点灯（0x20-0x27）
+    uint8_t tube = cmd - 0x20;
+    uint8_t state = receiveBuffer[1];
+    if (tube < 8) {
+      noInterrupts();
+      dotLTable[tube] = (state > 0) ? 1 : 0;
+      interrupts();
+    }
+  }
+  else if (cmd >= 0x30 && cmd <= 0x37) {
+    // 管別右ドット点灯（0x30-0x37）
+    uint8_t tube = cmd - 0x30;
+    uint8_t state = receiveBuffer[1];
+    if (tube < 8) {
+      noInterrupts();
+      dotRTable[tube] = (state > 0) ? 1 : 0;
+      interrupts();
     }
   }
   else if (cmd == 0x60) {
@@ -407,7 +452,7 @@ void processI2CCommand() {
   else if (cmd == 0x70) {
     // クロスフェード速度設定（0x70）
     uint8_t speed = receiveBuffer[1];
-    if (speed <= 10) {  // 0-10の範囲に制限
+    if (speed <= 6) {  // 0-6の範囲に制限
       crossfadeSpeedIndex = speed;
     }
   }
@@ -456,7 +501,7 @@ void processI2CCommand() {
     }
   }
   else if (cmd == 0x80) {
-    // 全管左ドット制御（0x80）
+    // 全管左ドット点灯（0x80）
     uint8_t state = receiveBuffer[1];
     noInterrupts();
     for (uint8_t i = 0; i < 8; i++) {
@@ -465,7 +510,7 @@ void processI2CCommand() {
     interrupts();
   }
   else if (cmd == 0x81) {
-    // 全管右ドット制御（0x81）
+    // 全管右ドット点灯（0x81）
     uint8_t state = receiveBuffer[1];
     noInterrupts();
     for (uint8_t i = 0; i < 8; i++) {
@@ -473,33 +518,80 @@ void processI2CCommand() {
     }
     interrupts();
   }
-  else if (cmd >= 0x90 && cmd <= 0x97) {
-    // 管別左ドット制御（0x90-0x97）
-    uint8_t tube = cmd - 0x90;
-    uint8_t state = receiveBuffer[1];
+  else if (cmd >= 0x90 && cmd <= 0xA7) {
+    // 管別シャッフル停止＋数字指定（0xA0-0xA7のみ有効）
+    if (cmd >= 0xA0 && cmd <= 0xA7) {
+      uint8_t tube = cmd - 0xA0;
+      uint8_t targetNumber = receiveBuffer[1];
+      if (tube < 8 && targetNumber <= 9) {
+        stopShuffle(tube, targetNumber);
+      }
+    }
+  }
+  else if (cmd == 0xBF) {
+    // 全管左ドット消灯（0xBF）
+    noInterrupts();
+    for (uint8_t i = 0; i < 8; i++) {
+      dotLTable[i] = 0;
+    }
+    interrupts();
+  }
+  else if (cmd == 0xCF) {
+    // 全管右ドット消灯（0xCF）
+    noInterrupts();
+    for (uint8_t i = 0; i < 8; i++) {
+      dotRTable[i] = 0;
+    }
+    interrupts();
+  }
+  else if (cmd == 0xDF) {
+    // 全管ドット消灯（LR）（0xDF）
+    noInterrupts();
+    for (uint8_t i = 0; i < 8; i++) {
+      dotLTable[i] = 0;
+      dotRTable[i] = 0;
+    }
+    interrupts();
+  }
+  else if (cmd >= 0xD1 && cmd <= 0xD7) {
+    // 管別ドット消灯（LR）（0xD1-0xD7）
+    uint8_t tube = cmd - 0xD1;
     if (tube < 8) {
       noInterrupts();
-      dotLTable[tube] = (state > 0) ? 1 : 0;
+      dotLTable[tube] = 0;
+      dotRTable[tube] = 0;
       interrupts();
     }
   }
-  else if (cmd >= 0x98 && cmd <= 0x9F) {
-    // 管別右ドット制御（0x98-0x9F）
-    uint8_t tube = cmd - 0x98;
-    uint8_t state = receiveBuffer[1];
-    if (tube < 8) {
-      noInterrupts();
-      dotRTable[tube] = (state > 0) ? 1 : 0;
-      interrupts();
-    }
+  else if (cmd >= 0xE0 && cmd <= 0xE7) {
+    // 管別数字消灯（0xE0-0xE7）
+    uint8_t tube = cmd - 0xE0;
+    setTubeState(tube, 255, 1);
   }
-  else if (cmd >= 0xA0 && cmd <= 0xA7) {
-    // 管別シャッフル停止＋数字指定（0xA0-0xA7）
-    uint8_t tube = cmd - 0xA0;
-    uint8_t targetNumber = receiveBuffer[1];
-    if (tube < 8 && targetNumber <= 9) {
-      stopShuffle(tube, targetNumber);
+  else if (cmd == 0xEF) {
+    // 全管数字消灯（0xEF）
+    noInterrupts();
+    for (uint8_t i = 0; i < 8; i++) {
+      displayTable[i] = 255;
+      brightnessTable[i] = 0;
     }
+    interrupts();
+  }
+  else if (cmd >= 0xF0 && cmd <= 0xF7) {
+    // 管別全消灯（数字+LRドット）（0xF0-0xF7）
+    uint8_t tube = cmd - 0xF0;
+    setTubeState(tube, 255, 0);
+  }
+  else if (cmd == 0xFF) {
+    // 全管全消灯（数字+LRドット）（0xFF）
+    noInterrupts();
+    for (uint8_t i = 0; i < 8; i++) {
+      displayTable[i] = 255;
+      brightnessTable[i] = 0;
+      dotLTable[i] = 0;
+      dotRTable[i] = 0;
+    }
+    interrupts();
   }
   else if (cmd == 0x4D) {
     // ロック解除 "MSX"
