@@ -67,28 +67,29 @@ This project implements a sophisticated 8-tube Nixie display controller using an
 
 ### Cross-Fade Configuration
 
-#### Step Count Configuration
+#### Global Step Count Configuration
 | Command | Parameter | Function | Description |
 |---------|-----------|----------|-------------|
-| `0x60` | steps (1-20) | Set cross-fade steps | Configure number of transition steps |
+| `0x60` | steps (1-10) | Set cross-fade steps for all tubes | Configure number of transition steps |
+
+#### Individual Step Count Configuration
+| Command | Parameter | Function | Description |
+|---------|-----------|----------|-------------|
+| `0x61-0x68` | steps (1-10) | Set cross-fade steps for tube 0-7 | Individual tube step configuration |
 
 #### Speed Configuration
 | Command | Parameter | Function | Description |
 |---------|-----------|----------|-------------|
-| `0x70` | speed (0-10) | Set cross-fade speed | Configure transition speed |
+| `0x70` | speed (0-6) | Set cross-fade speed | Configure transition speed |
 
 **Speed Table:**
-- `0x70 + 0`: Ultra-fast (~10ms interval) → 5 steps = ~50ms
-- `0x70 + 1`: Very fast (~20ms interval) → 5 steps = ~100ms
-- `0x70 + 2`: Fast (~25ms interval) → 5 steps = ~125ms
-- `0x70 + 3`: Moderately fast (~40ms interval) → 5 steps = ~200ms
-- `0x70 + 4`: **Standard (~50ms interval) → 5 steps = ~250ms** (Default)
-- `0x70 + 5`: Moderately slow (~60ms interval) → 5 steps = ~300ms
-- `0x70 + 6`: Slow (~100ms interval) → 5 steps = ~500ms
-- `0x70 + 7`: Very slow (~150ms interval) → 5 steps = ~750ms
-- `0x70 + 8`: Ultra-slow (~200ms interval) → 5 steps = ~1 second
-- `0x70 + 9`: Extremely slow (~250ms interval) → 5 steps = ~1.25 seconds
-- `0x70 + 10`: Maximum slow (~500ms interval) → 5 steps = ~2.5 seconds
+- `0x70 + 0`: Fast (~26ms interval)
+- `0x70 + 1`: Moderately fast (~33ms interval)
+- `0x70 + 2`: **Standard (~66ms interval)** (Default)
+- `0x70 + 3`: Moderately slow (~132ms interval)
+- `0x70 + 4`: Slow (~198ms interval)
+- `0x70 + 5`: Very slow (~264ms interval)
+- `0x70 + 6`: Ultra-slow (~330ms interval)
 
 ### Random Shuffle Commands
 
@@ -107,7 +108,7 @@ This project implements a sophisticated 8-tube Nixie display controller using an
 | Command | Function | Description |
 |---------|----------|-------------|
 | `0x74-0x7B` | Start tube 0-7 shuffle | Begin shuffling individual tube |
-| `0x7C` | Emergency stop | Immediately stop all shuffles (debug use) |
+| `0x7C` | Emergency stop | Immediately stop all shuffles |
 
 #### Individual Shuffle Stop
 | Command | Parameter | Function | Description |
@@ -116,24 +117,50 @@ This project implements a sophisticated 8-tube Nixie display controller using an
 
 ### Dot Display Commands
 
+#### Individual Dot Control
+| Command | Parameter | Function | Description |
+|---------|-----------|----------|-------------|
+| `0x20-0x27` | state (0/1) | Tube 0-7 left dot | Control individual left dots |
+| `0x30-0x37` | state (0/1) | Tube 0-7 right dot | Control individual right dots |
+
 #### Global Dot Control
 | Command | Parameter | Function | Description |
 |---------|-----------|----------|-------------|
 | `0x80` | state (0/1) | All tubes left dot | Control all left dots (0=off, 1=on) |
 | `0x81` | state (0/1) | All tubes right dot | Control all right dots (0=off, 1=on) |
 
-#### Individual Dot Control
-| Command | Parameter | Function | Description |
-|---------|-----------|----------|-------------|
-| `0x90-0x97` | state (0/1) | Tube 0-7 left dot | Control individual left dots |
-| `0x98-0x9F` | state (0/1) | Tube 0-7 right dot | Control individual right dots |
+### Tube Extinguishing Commands
 
-### Special Commands
-
-#### System Commands
+#### Global Dot Extinguishing
 | Command | Function | Description |
 |---------|----------|-------------|
-| `0xFF` | Timing test | Internal timing accuracy test (development use) |
+| `0xBF` | All tubes left dot off | Turn off all left dots |
+| `0xCF` | All tubes right dot off | Turn off all right dots |
+| `0xDF` | All tubes LR dots off | Turn off all left and right dots |
+
+#### Individual Dot Extinguishing
+| Command | Function | Description |
+|---------|----------|-------------|
+| `0xD1-0xD7` | Tube 0-6 LR dots off | Turn off left and right dots for individual tubes |
+
+#### Digit Extinguishing
+| Command | Function | Description |
+|---------|----------|-------------|
+| `0xE0-0xE7` | Tube 0-7 digit off | Turn off digit display for individual tubes |
+| `0xEF` | All tubes digits off | Turn off all digit displays |
+
+#### Complete Extinguishing
+| Command | Function | Description |
+|---------|----------|-------------|
+| `0xF0-0xF7` | Tube 0-7 complete off | Turn off digit and LR dots for individual tubes |
+| `0xFF` | All tubes complete off | Turn off all digits and LR dots |
+
+### System Commands
+
+#### Lock Control
+| Command | Parameters | Function | Description |
+|---------|------------|----------|-------------|
+| `0x4D` | `0x53`, `0x58` | Unlock system | Unlock with "MSX" sequence |
 
 ## Auto-Stop Feature
 
@@ -141,24 +168,6 @@ The system automatically stops shuffling when digit setting commands are execute
 - Global digit commands (`0x00-0x09`) automatically stop all shuffles
 - Individual digit commands (`0x10-0x17`) automatically stop shuffle for the specific tube
 - This provides seamless transition from shuffle mode to normal display mode
-
-## Technical Implementation Details
-
-### ISR (Interrupt Service Routine)
-- **Frequency**: 1320Hz (TCA0.SINGLE.PER = 1249)
-- **Function**: High-speed multiplexing and cross-fade processing
-- **Phase Management**: Each tube uses unique phase offset for smooth operation
-- **Brightness Control**: PWM-like time-ratio control for cross-fade effects
-
-### Random Number Generation
-- **Algorithm**: Linear Congruential Generator (LCG)
-- **Formula**: `next = (prev * 1103515245 + 12345) & 0x7FFFFFFF`
-- **Quality**: High-quality pseudo-random sequence suitable for visual effects
-
-### Memory Usage
-- **Program Memory**: Optimized for ATtiny402's limited flash
-- **RAM Usage**: Efficient state management for 8 tubes
-- **Variables**: Tube states, cross-fade parameters, shuffle states, dot states
 
 ## Development Environment
 
@@ -183,4 +192,3 @@ board_build.f_cpu = 20000000L
 ## License
 
 This project is open source. Please refer to the license file for details.
-
